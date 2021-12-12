@@ -1,2 +1,8 @@
-# VirtualMouseOpenCv
-This project is based on computer vision and it is implemented using modules like opencv numpy and mediapipe framework . The objective behind the project is to make the index finger functional as the mouse pointer. For the implementation of the features of mouse pointer pyautogui module is used. PyAutoGUI lets the Python scripts control the mouse and keyboard to automate interactions with other applications. MediaPipe Hands is a high-fidelity hand and finger tracking solution. It employs machine learning (ML) to infer 21 3D landmarks of a hand from just a single frame.
+# VirtualPainterOpenCv
+This repository contains a project based on computer Vision using opencv.
+VirtualPainter is one of the applications of computer vision.
+Modules used opencv , time , math and the framework mediapipe
+For classifiaction of images numpy.
+This project is also implemented with the help of self made Handtracking Module the purpose behind it is the track the hand using specified points in mediapipe.
+The web cam specifically tracks the hands and further index finger and both index finger and middle finger are user to draw and select the options respectively.
+////// The handtracking module and main file should be in same path.
