@@ -1,77 +1,120 @@
 import cv2
 import numpy as np
-import HandTrackingModule as htm
 import time
-import pyautogui
-pyautogui.FAILSAFE= False
+import os
+import HandTrackingModule as htm
 
-######################
-wCam, hCam = 640, 480
-frameR = 150    #Frame Reduction
-smoothening = 5  #random value
-######################
+#######################
+brushThickness = 10
+eraserThickness = 100
+########################
 
-pTime = 0
-plocX, plocY = 0, 0
-clocX, clocY = 0, 0
+
+
+
+folderPath = "Header"
+myList = os.listdir(folderPath)
+print(myList)
+overlayList = []
+for imPath in myList:
+    image = cv2.imread(f'{folderPath}/{imPath}')
+    overlayList.append(image)
+print(len(overlayList))
+header = overlayList[0]
+drawColor = (255, 0, 255)
+
 cap = cv2.VideoCapture(0)
-cap.set(3, wCam)
-cap.set(4, hCam)
+cap.set(3, 1080)
+cap.set(4, 720)
 
-detector = htm.handDetector(maxHands=1)
-wScr, hScr = pyautogui.size()
+xp,yp=0,0
 
-# print(wScr, hScr)
+
+detector = htm.handDetector(detectionCon=0.85)
+imgCanvas = np.zeros((720, 1280, 3), np.uint8)
 
 while True:
-    # Step1: Find the landmarks
-    success, img = cap.read()
-    img = detector.findHands(img)
-    lmList, bbox = detector.findPosition(img)
 
-    # Step2: Get the tip of the index and middle finger
+    # 1. Import image
+    success, img = cap.read()
+    img=cv2.flip(img,1)
+
+    #2.Find hand landmarks
+    img = detector.findHands(img)
+    lmList = detector.findPosition(img, draw=False)
+
     if len(lmList) != 0:
+        #print(lmList)
+
         x1, y1 = lmList[8][1:]
         x2, y2 = lmList[12][1:]
 
-        # Step3: Check which fingers are up
+        # 3. Check which fingers are up
         fingers = detector.fingersUp()
-        cv2.rectangle(img, (frameR, frameR), (wCam - frameR, hCam - frameR),
-                      (255, 0, 255), 2)
+        #print(fingers)
 
-        # Step4: Only Index Finger: Moving Mode
-        if fingers[1] == 1 and fingers[2] == 0:
+        # 4. If Selection Mode - Two finger are up
+        if fingers[1] and fingers[2]:
+            xp, yp = 0, 0
+            cv2.rectangle(img, (x1, y1 - 25), (x2, y2 + 25), (255,0,255), cv2.FILLED)
+            #print("Selection Mode")
 
-            # Step5: Convert the coordinates
-            x3 = np.interp(x1, (frameR, wCam-frameR), (0, wScr))
-            y3 = np.interp(y1, (frameR, hCam-frameR), (0, hScr))
+            if y1 < 125:
+                if 250 < x1 < 450:
+                    header = overlayList[0]
+                    drawColor = (255, 0, 255)
+                elif 550 < x1 < 750:
+                    header = overlayList[1]
+                    drawColor = (255, 0, 0)
+                elif 800 < x1 < 950:
+                    header = overlayList[2]
+                    drawColor = (0, 255, 0)
+                elif 1050 < x1 < 1200:
+                    header = overlayList[3]
+                    drawColor = (0, 0, 0)
+            cv2.rectangle(img, (x1, y1 - 25), (x2, y2 + 25), drawColor, cv2.FILLED)
+           
+        
+        # 5. If Drawing Mode - Index finger is up
+        if fingers[1] and fingers[2] == False:
 
-            # Step6: Smooth Values
-            clocX = plocX + (x3 - plocX) / smoothening
-            clocY = plocY + (y3 - plocY) / smoothening
+            cv2.circle(imgCanvas, (x1, y1), 15, drawColor, cv2.FILLED)
+           
+            #print("Drawing Mode")
 
-            # Step7: Move Mouse
-            pyautogui.moveTo(wScr - clocX, clocY)
-            cv2.circle(img, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
-            plocX, plocY = clocX, clocY
+            if xp == 0 and yp == 0:
+                xp, yp = x1, y1
 
-        # Step8: Both Index and middle are up: Clicking Mode
-        if fingers[1] == 1 and fingers[2] == 1:
 
-            # Step9: Find distance between fingers
-            length, img, lineInfo = detector.findDistance(8, 12, img)
+            
+            cv2.line(img, (xp, yp), (x1, y1), drawColor, brushThickness)
+            cv2.line(img, (xp, yp), (x1, y1), drawColor, brushThickness)
 
-            # Step10: Click mouse if distance short
-            if length < 30:
-                cv2.circle(img, (lineInfo[4], lineInfo[5]), 15, (0, 255, 0), cv2.FILLED)
-                pyautogui.click()
+            if drawColor == (0, 0, 0):
+              cv2.line(img, (xp, yp), (x1, y1), drawColor, eraserThickness)
+              cv2.line(imgCanvas, (xp, yp), (x1, y1), drawColor, eraserThickness)
+        
+            else:
+                cv2.line(img, (xp, yp), (x1, y1), drawColor, brushThickness)
+                cv2.line(imgCanvas, (xp, yp), (x1, y1), drawColor, brushThickness)
 
-    # Step11: Frame rate
-    cTime = time.time()
-    fps = 1/(cTime-pTime)
-    pTime = cTime
-    cv2.putText(img, str(int(fps)), (28, 58), cv2.FONT_HERSHEY_PLAIN, 3, (255, 8, 8), 3)
+            xp, yp = x1, y1
 
-    # Step12: Display
-    cv2.imshow("Image", img)
+
+
+
+    imgGray = cv2.cvtColor(imgCanvas, cv2.COLOR_BGR2GRAY)
+    _, imgInv = cv2.threshold(imgGray, 50, 255, cv2.THRESH_BINARY_INV)
+    imgInv = cv2.cvtColor(imgInv,cv2.COLOR_GRAY2BGR)
+    img = cv2.bitwise_and(img,imgInv)
+    img = cv2.bitwise_or(img,imgCanvas)
+
+    
+    #setting header image
+
+    img[0:125,0:1280]=header
+    img = cv2.addWeighted(img,0.5,imgCanvas,0.5,0)
+    cv2.imshow("Image",img)
+    cv2.imshow("Canvas",imgCanvas)
+    cv2.imshow("Inv", imgInv)
     cv2.waitKey(1)
